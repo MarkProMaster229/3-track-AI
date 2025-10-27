@@ -1,3 +1,4 @@
+import re
 import requests
 from bs4 import BeautifulSoup
 
@@ -11,12 +12,38 @@ class ToolCatcherImprovedSearch:
             )
         }
 
+    def _clean_intro(self, text: str) -> str:
+        """
+        Убирает все скобочные вставки, но сохраняет пробелы, чтобы слова не слипались.
+        Также удаляет [1], [2] и другие ссылки в квадратных скобках.
+        """
+        if not text:
+            return text
+
+        #  1) Удаляем всё, что в скобках, заменяя на один пробел
+        cleaned = re.sub(r"\s*\([^)]*\)\s*", " ", text)
+
+        #  2) Удаляем ссылки вида [1], [2], [note 3]
+        cleaned = re.sub(r"\s*\[[^\]]*\]\s*", " ", cleaned)
+
+        #  3) Чистим повторяющиеся пробелы и лишние пробелы перед пунктуацией
+        cleaned = re.sub(r"\s{2,}", " ", cleaned)
+        cleaned = re.sub(r"\s+([.,;:?!])", r"\1", cleaned)
+
+        #  4) Убираем случайные пробелы перед дефисами и после них
+        cleaned = re.sub(r"\s*([-–—])\s*", r" \1 ", cleaned)
+
+        #5) Убираем двойные пробелы, оставляем чистую строку
+        cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
+
+        return cleaned
+
     def execute_search(self, query: str):
         """
-        Ищет статью по смыслу: исправляет окончания, ищет через API и парсит первый абзац.
+        Ищет статью по смыслу: использует OpenSearch API и парсит первый абзац,
+        затем очищает абзац от скобочных вставок и ссылок.
         """
         try:
-            # --- 1️⃣ Поиск похожих статей через OpenSearch API ---
             search_url = "https://ru.wikipedia.org/w/api.php"
             params = {
                 "action": "opensearch",
@@ -30,32 +57,52 @@ class ToolCatcherImprovedSearch:
             response.raise_for_status()
             data = response.json()
 
-            
             titles = data[1]
             links = data[3]
 
             if not titles:
                 return "Ничего не найдено по запросу."
 
-        
             title = titles[0]
             link = links[0]
 
-          
             page = requests.get(link, headers=self.headers, timeout=8)
             page.raise_for_status()
             soup = BeautifulSoup(page.text, "html.parser")
 
-            first_p = soup.select_one("p")
-            if not first_p:
-                return f" Статья '{title}' найдена, но описание отсутствует."
+            # Иногда первый <p> может быть пустым — ищем первый ненулевой параграф
+            first_p = None
+            for p in soup.select("p"):
+                txt = p.get_text(strip=True)
+                if txt:
+                    first_p = txt
+                    break
 
-            text = first_p.get_text(strip=True)
-            return f"{text} (Источник: {title})"
+            if not first_p:
+                return f"Статья '{title}' найдена, но описание отсутствует."
+
+            # Очистка текста (удаляем скобки, ссылки и т.д.)
+            cleaned_text = self._clean_intro(first_p)
+
+            return f"{cleaned_text} (Источник: {title})"
 
         except Exception as e:
             return f"Ошибка поиска: {e}"
-        
-searcher = ToolCatcherImprovedSearch()
 
-print(searcher.execute_search("Автомобилаь"))
+
+# ------------------------
+# Пример использования:
+# ------------------------
+if __name__ == "__main__":
+    searcher = ToolCatcherImprovedSearch()
+
+    tests = [
+        "Эверест",
+        "Альберт Эйнштейн",
+        "Москва",
+        "Эйнштеина",   # падеж/склонение
+    ]
+
+    for q in tests:
+        print("\nЗапрос:", q)
+        print(searcher.execute_search(q))
