@@ -11,11 +11,24 @@ class InstructionBuffer:
 
     def __repr__(self):
         return f"<InstructionBuffer: {len(self.instructions)} instructions>"
+    
+    
+    
 #main.py
 
-#buffer = InstructionBuffer()
-#buffer.add("Скажи привет пользователю.")  # добавляем инструкцию
-#buffer.add("Выведи текущее время.")      # добавляем ещё одну
+#from instruction_buffer import InstructionBuffer
 
+#buffer = InstructionBuffer()
+
+# добавляем инструкции в буфер
+#buffer.add("""Вопрос: "Ваня купил 3 яблока, а потом ещё 2. Сколько всего?"
+#Ответ: "<calc>3+2=5</calc>\""")
+
+#buffer.add("""Вопрос: "Кто президент Франции в 2025?"
+#Ответ: "<search>президент Франции 2025</search>\""")
+
+#buffer.add("""Вопрос: "У Пети 2 яблока, у Вани на 2 яблока больше. Сколько яблок у Вани?"
+#Ответ: """)  # сюда модель подставит ответ
+
+# печатаем содержимое буфера
 #print(buffer.instructions)
-# ['Скажи привет пользователю.', 'Выведи текущее время.']
